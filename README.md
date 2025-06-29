@@ -42,6 +42,7 @@ Environment Management:
   switch <branch>           Switch to environment (Git branch)
   copy <new-branch>         Create and switch to a new branch from current
   sync                      Sync with remote (pull & hard reset)
+  pull [--merge]            Pull latest changes from remote (fast-forward by default, use --merge to allow merge commits)
   tag <name>                Create and push a tag with given name
   list-tags                 List all tags
   checkout-tag <tag>        Checkout a specific tag

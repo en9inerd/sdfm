@@ -18,6 +18,7 @@ Environment Management:
   switch <branch>           Switch to environment (Git branch)
   copy <new-branch>         Create and switch to a new branch from current
   sync                      Sync with remote (pull & hard reset)
+  pull [--merge]            Pull latest changes from remote (fast-forward by default, use --merge to allow merge commits)
   tag <name>                Create and push a tag with given name
   list-tags                 List all tags
   checkout-tag <tag>        Checkout a specific tag
@@ -500,6 +501,32 @@ case "$command" in
         else
             echo "Cleanup completed: $deleted backups removed."
         fi
+        ;;
+
+    pull)
+        require_repo
+
+        merge_mode="--ff-only"
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --merge)
+                    merge_mode=""
+                    shift
+                    ;;
+                *)
+                    echo "Warning: ignoring unknown option $1"
+                    shift
+                    ;;
+            esac
+        done
+
+        echo "Starting pull from remote..."
+        current_branch=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)
+        echo "Current branch: $current_branch"
+
+        git -C "$REPO_DIR" pull $merge_mode origin "$current_branch"
+
+        echo "Pulled latest changes into: $current_branch"
         ;;
 
     help|*)
