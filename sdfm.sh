@@ -307,8 +307,7 @@ case "$command" in
 
         changed=0
 
-        # Find all tracked files
-        git -C "$REPO_DIR" ls-files "home" | while read -r f; do
+        while read -r f; do
             relpath="${f#home/}"
             src="$HOME/$relpath"
             dest="$WORK_TREE/$relpath"
@@ -320,16 +319,14 @@ case "$command" in
                     git -C "$REPO_DIR" add "home/$relpath"
                     echo "Updated $relpath"
                     changed=1
-                else
-                    echo "No change: $relpath"
                 fi
             else
                 echo "Warning: $src does not exist in \$HOME, skipping"
             fi
-        done
+        done < <(git -C "$REPO_DIR" ls-files "home")
 
         if [ "$changed" -eq 1 ]; then
-            commit_changes "Updated files from \$HOME"
+            commit_changes "Updated dotfiles"
         else
             echo "No changes to commit."
         fi
