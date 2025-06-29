@@ -60,7 +60,7 @@ relpath_from_home() {
 # Helper: Commit changes with message or notify if nothing to commit
 commit_changes() {
     local msg="$1"
-    if ! git -C "$REPO_DIR" commit -m "$msg"; then
+    if ! git -C "$REPO_DIR" commit -m "$msg" --; then
         echo "Nothing to commit."
     else
         echo "Committed: $msg"
@@ -96,7 +96,7 @@ apply_files() {
         local src="$WORK_TREE/$relpath"
         local dest="$HOME/$relpath"
         mkdir -p "$(dirname "$dest")"
-        cp -a "$src" "$dest"
+        cp -au "$src" "$dest"
         echo "Applied $dest"
     done
 }
@@ -270,6 +270,12 @@ case "$command" in
         echo "Current branch: $current_branch"
 
         git -C "$REPO_DIR" fetch origin
+
+        if ! git -C "$REPO_DIR" rev-parse --verify --quiet "origin/$current_branch"; then
+            echo "Error: remote branch origin/$current_branch does not exist."
+            exit 1
+        fi
+
         git -C "$REPO_DIR" reset --hard "origin/$current_branch"
 
         echo "Synchronized with remote: $current_branch"
