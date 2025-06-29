@@ -15,20 +15,25 @@ Repository Setup:
   create-empty-branch <branch>              Create a new empty orphan branch
 
 Environment Management:
-  switch <branch>       Switch to environment (Git branch)
-  copy <new-branch>     Create and switch to a new branch from current
-  sync                  Sync with remote (pull & hard reset)
-  tag <name>            Create and push a tag with given name
-  list-tags             List all tags
-  checkout-tag <tag>    Checkout a specific tag
-  push                  Push current branch to remote
+  switch <branch>           Switch to environment (Git branch)
+  copy <new-branch>         Create and switch to a new branch from current
+  sync                      Sync with remote (pull & hard reset)
+  tag <name>                Create and push a tag with given name
+  list-tags                 List all tags
+  checkout-tag <tag>        Checkout a specific tag
+  push                      Push current branch to remote
 
 File Tracking:
-  add <file>...         Copy file(s) from \$HOME to repo and commit
-  rm <file>...          Remove file(s) from repo and commit
-  status                Show repository status
-  apply                 Backup existing tracked files and copy dotfiles to \$HOME
-  help                  Show this help
+  add <file>...             Copy file(s) from \$HOME to repo and commit
+  rm <file>...              Remove file(s) from repo and commit
+  status                    Show repository status
+  apply                     Backup existing tracked files and copy dotfiles to \$HOME
+
+Backup Maintenance:
+  cleanup-backup [--keep-days <n>]   Delete backups older than the specified number of days (default: 30)
+
+Other:
+  help                      Show this help
 EOF
 }
 
@@ -451,6 +456,44 @@ case "$command" in
         current_branch=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)
         echo "Pushing current branch: $current_branch"
         git -C "$REPO_DIR" push origin "$current_branch"
+        ;;
+
+    cleanup-backup)
+        keep_days=30
+
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --keep-days)
+                    keep_days="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Warning: ignoring unknown option $1"
+                    shift
+                    ;;
+            esac
+        done
+
+        if ! [[ "$keep_days" =~ ^[0-9]+$ ]]; then
+            echo "Error: --keep-days requires a numeric argument"
+            exit 1
+        fi
+
+        echo "Cleaning up backups older than $keep_days days in $BACKUP_DIR_BASE..."
+        deleted=0
+        if [ -d "$BACKUP_DIR_BASE" ]; then
+            while IFS= read -r -d '' dir; do
+                rm -rf "$dir"
+                echo "Deleted backup: $dir"
+                ((deleted++))
+            done < <(find "$BACKUP_DIR_BASE" -mindepth 1 -maxdepth 1 -type d -mtime +"$keep_days" -print0)
+        fi
+
+        if [ "$deleted" -eq 0 ]; then
+            echo "No backups older than $keep_days days were found."
+        else
+            echo "Cleanup completed: $deleted backups removed."
+        fi
         ;;
 
     help|*)

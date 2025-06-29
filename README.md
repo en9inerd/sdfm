@@ -39,22 +39,25 @@ Repository Setup:
   create-empty-branch <branch>              Create a new empty orphan branch
 
 Environment Management:
-  switch <branch>       Switch to environment (Git branch)
-  copy <new-branch>     Create and switch to a new branch from current
-  sync                  Sync with remote (pull & hard reset)
-  tag <name>            Create and push a tag with given name
-  list-tags             List all tags
-  checkout-tag <tag>    Checkout a specific tag
-  push                  Push current branch to remote
+  switch <branch>           Switch to environment (Git branch)
+  copy <new-branch>         Create and switch to a new branch from current
+  sync                      Sync with remote (pull & hard reset)
+  tag <name>                Create and push a tag with given name
+  list-tags                 List all tags
+  checkout-tag <tag>        Checkout a specific tag
+  push                      Push current branch to remote
 
 File Tracking:
-  add <file>...         Copy file(s) from $HOME to repo and commit
-  rm <file>...          Remove file(s) from repo and commit
-  status                Show repository status
-  apply                 Backup existing tracked files and copy dotfiles to $HOME
+  add <file>...             Copy file(s) from \$HOME to repo and commit
+  rm <file>...              Remove file(s) from repo and commit
+  status                    Show repository status
+  apply                     Backup existing tracked files and copy dotfiles to \$HOME
+
+Backup Maintenance:
+  cleanup-backup [--keep-days <n>]   Delete backups older than the specified number of days (default: 30)
 
 Other:
-  help                  Show this help
+  help                      Show this help
 ```
 
 ## Example Workflow
