@@ -66,8 +66,16 @@ commit_changes() {
     if git -C "$REPO_DIR" diff --cached --quiet; then
         echo "Nothing to commit."
     else
-        git -C "$REPO_DIR" commit -m "$msg"
-        echo "Committed: $msg"
+        echo "Files staged for commit:"
+        git -C "$REPO_DIR" diff --cached --name-only
+
+        read -rp "Commit changes? (y/N): " confirm
+        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+            git -C "$REPO_DIR" commit -m "$msg"
+            echo "Committed: $msg"
+        else
+            echo "Commit aborted."
+        fi
     fi
 }
 
