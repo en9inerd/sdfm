@@ -34,28 +34,28 @@ Run `sdfm help` for a full command list:
 
 ```bash
 Repository Setup:
-  init --remote <url> [--branch <branch>]   Initialize dotfiles repo with remote and optional branch
-  clone <url> [--branch <branch>]           Clone remote dotfiles repo
-  create-empty-branch <branch>              Create a new empty orphan branch
+  init --remote <url> [--branch <branch>]   Initialize dotfiles repo
+  clone <url> [--branch <branch>]           Clone remote repo
+  create-empty-branch <branch>              Create new empty orphan branch
 
 Environment Management:
   switch <branch>           Switch to environment (Git branch)
-  copy <new-branch>         Create and switch to a new branch from current
-  sync                      Sync with remote (pull & hard reset)
-  pull [--merge]            Pull latest changes from remote (fast-forward by default, use --merge to allow merge commits)
-  tag <name>                Create and push a tag with given name
-  list-tags                 List all tags
-  checkout-tag <tag>        Checkout a specific tag
-  push                      Push current branch to remote
+  copy <new-branch>         Create and switch to a new branch
+  sync                      Sync with remote
+  pull [--merge]            Pull from remote (fast-forward by default)
+  tag <name>                Create and push a tag
+  list-tags                 List tags
+  checkout-tag <tag>        Checkout a tag
+  push                      Push current branch
 
 File Tracking:
-  add <file>...             Copy file(s) from \$HOME to repo and commit
-  rm <file>...              Remove file(s) from repo and commit
-  status                    Show repository status
-  apply                     Backup existing tracked files and copy dotfiles to \$HOME
+  add <file>...             Copy file(s) from \$HOME to repo
+  rm <file>...              Remove file(s) from repo
+  status                    Show status
+  apply                     Backup and apply dotfiles to \$HOME
 
 Backup Maintenance:
-  cleanup-backup [--keep-days <n>]   Delete backups older than the specified number of days (default: 30)
+  cleanup-backup [--keep-days <n>]   Delete backups older than n days (default: 30)
 
 Other:
   help                      Show this help
