@@ -49,12 +49,12 @@ Environment Management:
   push                      Push current branch
 
 File Tracking:
-  add <file>...             Copy file(s) from \$HOME to repo
+  add <file>...             Copy file(s) from $HOME to repo
   rm <file>...              Remove file(s) from repo
-  update                    Update tracked files in repo from \$HOME
+  update                    Update tracked files in repo from $HOME
   status                    Show status
   log                       Show log
-  apply                     Backup and apply dotfiles to \$HOME
+  apply                     Backup and apply dotfiles to $HOME
 
 Backup Maintenance:
   cleanup-backup [--keep-days <n>]   Delete backups older than n days (default: 30)
