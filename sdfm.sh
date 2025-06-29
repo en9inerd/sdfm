@@ -29,6 +29,7 @@ File Tracking:
   rm <file>...              Remove file(s) from repo
   update                    Update tracked files in repo from \$HOME
   status                    Show status
+  log                       Show log
   apply                     Backup and apply dotfiles to \$HOME
 
 Backup Maintenance:
@@ -47,7 +48,12 @@ require_repo() {
 }
 
 abspath() {
-    (cd "$(dirname "$1")" && pwd)/$(basename "$1")
+    target="$1"
+    if [ -d "$target" ]; then
+        (cd "$target" && pwd)
+    else
+        (cd "$(dirname "$target")" && echo "$(pwd)/$(basename "$target")")
+    fi
 }
 
 relpath_from_home() {
@@ -291,6 +297,8 @@ case "$command" in
     update)
         require_repo
 
+        changed=0
+
         # Find all tracked files
         git -C "$REPO_DIR" ls-files "home" | while read -r f; do
             relpath="${f#home/}"
@@ -298,16 +306,30 @@ case "$command" in
             dest="$WORK_TREE/$relpath"
 
             if [ -e "$src" ]; then
-                mkdir -p "$(dirname "$dest")"
-                cp -a "$src" "$dest"
-                git -C "$REPO_DIR" add "home/$relpath"
-                echo "Updated $relpath"
+                if [ ! -e "$dest" ] || ! cmp -s "$src" "$dest"; then
+                    mkdir -p "$(dirname "$dest")"
+                    cp -a "$src" "$dest"
+                    git -C "$REPO_DIR" add "home/$relpath"
+                    echo "Updated $relpath"
+                    changed=1
+                else
+                    echo "No change: $relpath"
+                fi
             else
                 echo "Warning: $src does not exist in \$HOME, skipping"
             fi
         done
 
-        commit_changes "Updated files from \$HOME"
+        if [ "$changed" -eq 1 ]; then
+            commit_changes "Updated files from \$HOME"
+        else
+            echo "No changes to commit."
+        fi
+        ;;
+
+    log)
+        require_repo
+        git -C "$REPO_DIR" log
         ;;
 
     status)

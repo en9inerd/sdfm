@@ -53,6 +53,7 @@ File Tracking:
   rm <file>...              Remove file(s) from repo
   update                    Update tracked files in repo from \$HOME
   status                    Show status
+  log                       Show log
   apply                     Backup and apply dotfiles to \$HOME
 
 Backup Maintenance:
