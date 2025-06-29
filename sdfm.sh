@@ -27,6 +27,7 @@ Environment Management:
 File Tracking:
   add <file>...             Copy file(s) from \$HOME to repo
   rm <file>...              Remove file(s) from repo
+  update                    Update tracked files in repo from \$HOME
   status                    Show status
   apply                     Backup and apply dotfiles to \$HOME
 
@@ -285,6 +286,28 @@ case "$command" in
         done
 
         commit_changes "Removed files"
+        ;;
+
+    update)
+        require_repo
+
+        # Find all tracked files
+        git -C "$REPO_DIR" ls-files "home" | while read -r f; do
+            relpath="${f#home/}"
+            src="$HOME/$relpath"
+            dest="$WORK_TREE/$relpath"
+
+            if [ -e "$src" ]; then
+                mkdir -p "$(dirname "$dest")"
+                cp -a "$src" "$dest"
+                git -C "$REPO_DIR" add "home/$relpath"
+                echo "Updated $relpath"
+            else
+                echo "Warning: $src does not exist in \$HOME, skipping"
+            fi
+        done
+
+        commit_changes "Updated files from \$HOME"
         ;;
 
     status)

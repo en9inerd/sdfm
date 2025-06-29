@@ -51,6 +51,7 @@ Environment Management:
 File Tracking:
   add <file>...             Copy file(s) from \$HOME to repo
   rm <file>...              Remove file(s) from repo
+  update                    Update tracked files in repo from \$HOME
   status                    Show status
   apply                     Backup and apply dotfiles to \$HOME
 
