@@ -21,7 +21,7 @@ curl -fsSL "$SCRIPT_URL" -o "$TARGET_PATH"
 
 chmod +x "$TARGET_PATH"
 
-echo "Installed $TARGER_SCRIPT_NAME."
+echo "Installed $TARGET_SCRIPT_NAME."
 
 # Check if ~/.local/bin is in PATH
 case ":$PATH:" in
