@@ -2,28 +2,26 @@
 set -e
 
 # Change this to your script filename
-SCRIPT_NAME="sdfm"
+SCRIPT_NAME="sdfm.sh"
+TARGET_SCRIPT_NAME="sdfm"
 
 # Change this to your repo URL if you want to download via curl
 SCRIPT_URL="https://raw.githubusercontent.com/en9inerd/sdfm/master/$SCRIPT_NAME"
 
 INSTALL_DIR="$HOME/.local/bin"
-TARGET_PATH="$INSTALL_DIR/$SCRIPT_NAME"
+TARGET_PATH="$INSTALL_DIR/$TARGET_SCRIPT_NAME"
 
 # Create bin directory if needed
 mkdir -p "$INSTALL_DIR"
 
 echo "Installing $SCRIPT_NAME to $TARGET_PATH..."
 
-# If you want to copy from local directory instead of downloading, use this:
-# cp "./$SCRIPT_NAME" "$TARGET_PATH"
-
 # Download the script
 curl -fsSL "$SCRIPT_URL" -o "$TARGET_PATH"
 
 chmod +x "$TARGET_PATH"
 
-echo "Installed $SCRIPT_NAME."
+echo "Installed $TARGER_SCRIPT_NAME."
 
 # Check if ~/.local/bin is in PATH
 case ":$PATH:" in
@@ -51,5 +49,5 @@ case ":$PATH:" in
     ;;
 esac
 
-echo "Done! You can now run '$SCRIPT_NAME'"
+echo "Done! You can now run '$TARGET_SCRIPT_NAME'"
 
