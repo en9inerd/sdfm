@@ -1,4 +1,4 @@
-# sdfm - Simple Dotfiles Manager
+# sdfm - Simple DotFiles Manager
 
 A lightweight Bash tool for managing your dotfiles in a Git repository with easy backup and environment switching.
 
