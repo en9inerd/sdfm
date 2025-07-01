@@ -18,10 +18,10 @@ A lightweight Bash tool for managing your dotfiles in a Git repository with easy
 
 ## Installation
 
-Copy `sdfm` into your `PATH` (e.g., `~/bin`) and make it executable:
+You can install **sdfm** automatically with the provided `install.sh` script:
 
 ```bash
-chmod +x sdfm
+curl -fsSL https://raw.githubusercontent.com/en9inerd/sdfm/master/install.sh | bash
 ```
 
 ## Usage
