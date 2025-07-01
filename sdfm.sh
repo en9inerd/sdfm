@@ -7,7 +7,7 @@ readonly BACKUP_DIR_BASE="$HOME/.local/share/sdfm/backups"
 
 usage() {
     cat <<EOF
-Simple Dotfiles Manager (sdfm)
+Simple DotFiles Manager (sdfm)
 
 Repository Setup:
   init --remote <url> [--branch <branch>]   Initialize dotfiles repo
