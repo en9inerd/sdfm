@@ -36,6 +36,7 @@ Backup Maintenance:
   cleanup-backup [--keep-days <n>]   Delete backups older than n days (default: 30)
 
 Other:
+  git <args>                Run arbitrary git command in the repo
   help                      Show this help
 EOF
 }
@@ -66,9 +67,6 @@ commit_changes() {
     if git -C "$REPO_DIR" diff --cached --quiet; then
         echo "Nothing to commit."
     else
-        echo "Files staged for commit:"
-        git -C "$REPO_DIR" diff --cached --name-only
-
         read -rp "Commit changes? (y/N): " confirm
         if [[ "$confirm" =~ ^[Yy]$ ]]; then
             git -C "$REPO_DIR" commit -m "$msg"
@@ -360,6 +358,15 @@ case "$command" in
             rm -rf "$dir"
             echo "Deleted backup $dir"
         done
+        ;;
+
+    git)
+        require_repo
+        if [ "$#" -eq 0 ]; then
+            echo "Error: git requires arguments. Example: sdfm git status"
+            exit 1
+        fi
+        git -C "$REPO_DIR" "$@"
         ;;
 
     help|*)

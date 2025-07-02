@@ -60,6 +60,7 @@ Backup Maintenance:
   cleanup-backup [--keep-days <n>]   Delete backups older than n days (default: 30)
 
 Other:
+  git <args>                Run arbitrary git command in the repo
   help                      Show this help
 ```
 
