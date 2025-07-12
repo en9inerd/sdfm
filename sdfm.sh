@@ -269,10 +269,14 @@ case "$command" in
             abs=$(abspath "$p")
             [[ "$abs" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
 
-            rel=$(relpath_from_home "$abs")
+            rel=$(relpath_from_home "$p")
             dest="$WORK_TREE/$rel"
             mkdir -p "$(dirname "$dest")"
-            cp -a "$abs" "$dest"
+            if [ -d "$abs" ]; then
+                cp -a "$abs"/. "$dest"
+            else
+                cp -a "$abs" "$dest"
+            fi
             git -C "$REPO_DIR" add "home/$rel"
             echo "Added $rel"
         done
