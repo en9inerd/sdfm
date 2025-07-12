@@ -266,10 +266,10 @@ case "$command" in
         [ "$#" -eq 0 ] && { echo "Error: add requires files"; exit 1; }
 
         for p in "$@"; do
+            [[ "$p" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
             abs=$(abspath "$p")
-            [[ "$abs" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
-
             rel=$(relpath_from_home "$p")
+
             dest="$WORK_TREE/$rel"
             mkdir -p "$(dirname "$dest")"
             if [ -d "$abs" ]; then
@@ -289,10 +289,9 @@ case "$command" in
         [ "$#" -eq 0 ] && { echo "Error: rm requires files"; exit 1; }
 
         for p in "$@"; do
-            abs=$(abspath "$p")
-            [[ "$abs" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
+            [[ "$p" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
+            rel=$(relpath_from_home "$p")
 
-            rel=$(relpath_from_home "$abs")
             if [ -e "$WORK_TREE/$rel" ]; then
                 git -C "$REPO_DIR" rm -r "home/$rel"
                 echo "Removed $rel"
