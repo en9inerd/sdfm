@@ -322,7 +322,9 @@ case "$command" in
                     changed=1
                 fi
             else
-                echo "Warning: $src does not exist in \$HOME, skipping"
+                echo "Removed $relpath (no longer in \$HOME)"
+                git -C "$REPO_DIR" rm "home/$relpath"
+                changed=1
             fi
         done < <(git -C "$REPO_DIR" ls-files "home")
 
