@@ -98,7 +98,7 @@ apply_files() {
         local src="$WORK_TREE/$relpath"
         local dest="$HOME/$relpath"
         mkdir -p "$(dirname "$dest")"
-        cp -au "$src" "$dest"
+        rsync -a "$src" "$dest"
         echo "Applied $relpath"
     done
 }
