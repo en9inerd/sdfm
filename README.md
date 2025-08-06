@@ -54,6 +54,7 @@ File Tracking:
   update                    Update tracked files in repo from $HOME
   status                    Show status
   log                       Show log
+  diff                      Show differences between $HOME and repo
   apply                     Backup and apply dotfiles to $HOME
 
 Backup Maintenance:

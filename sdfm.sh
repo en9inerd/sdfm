@@ -30,6 +30,7 @@ File Tracking:
   update                    Update tracked files in repo from \$HOME
   status                    Show status
   log                       Show log
+  diff                      Show differences between \$HOME and repo
   apply                     Backup and apply dotfiles to \$HOME
 
 Backup Maintenance:
@@ -353,6 +354,34 @@ case "$command" in
         backup_files "$backup"
         apply_files
         echo "Dotfiles applied"
+        ;;
+
+    diff)
+        require_repo
+        echo "Checking for differences between repo and \$HOME..."
+        TMP_MARKER="$(mktemp)"
+        git -C "$REPO_DIR" ls-files "home" | while read -r f; do
+            relpath="${f#home/}"
+            repo_file="$WORK_TREE/$relpath"
+            home_file="$HOME/$relpath"
+
+            if [ -e "$home_file" ]; then
+                if ! cmp -s "$repo_file" "$home_file"; then
+                    echo "=== Diff for $relpath ==="
+                    diff -u "$home_file" "$repo_file" || true
+                    echo
+                    echo "1" >> "$TMP_MARKER"
+                fi
+            else
+                echo "--- $relpath missing in \$HOME (would be added)"
+                echo "1" >> "$TMP_MARKER"
+            fi
+        done
+
+        if ! grep -q "1" "$TMP_MARKER"; then
+            echo "No differences found."
+        fi
+        rm -f "$TMP_MARKER"
         ;;
 
     cleanup-backup)
