@@ -73,7 +73,9 @@ commit_changes() {
             git -C "$REPO_DIR" commit -m "$msg"
             echo "Committed: $msg"
         else
-            echo "Commit aborted."
+            echo "Commit aborted. Discarding staged changes..."
+            git -C "$REPO_DIR" reset
+            git -C "$REPO_DIR" checkout -- "home"
         fi
     fi
 }
