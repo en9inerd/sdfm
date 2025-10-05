@@ -296,7 +296,7 @@ case "$command" in
             rel=$(relpath_from_home "$p")
 
             if [ -e "$WORK_TREE/$rel" ]; then
-                git -C "$REPO_DIR" rm -r "home/$rel"
+                git -C "$REPO_DIR" rm -rq "home/$rel"
                 echo "Removed $rel"
             else
                 echo "Not found in repo: $rel"
@@ -325,7 +325,7 @@ case "$command" in
                     changed=1
                 fi
             else
-                git -C "$REPO_DIR" rm "home/$relpath"
+                git -C "$REPO_DIR" rm -q "home/$relpath"
                 echo "Removed $relpath (no longer in \$HOME)"
                 changed=1
             fi
