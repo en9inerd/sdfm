@@ -325,8 +325,8 @@ case "$command" in
                     changed=1
                 fi
             else
-                echo "Removed $relpath (no longer in \$HOME)"
                 git -C "$REPO_DIR" rm "home/$relpath"
+                echo "Removed $relpath (no longer in \$HOME)"
                 changed=1
             fi
         done < <(git -C "$REPO_DIR" ls-files "home")
