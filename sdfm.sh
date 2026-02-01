@@ -5,40 +5,76 @@ readonly REPO_DIR="$HOME/.local/share/sdfm/repo"
 readonly WORK_TREE="$REPO_DIR/home"
 readonly BACKUP_DIR_BASE="$HOME/.local/share/sdfm/backups"
 
+# Sensitive file patterns to warn about
+readonly SENSITIVE_PATTERNS=(
+    ".ssh/id_*"
+    ".ssh/*_rsa"
+    ".ssh/*_ed25519"
+    ".ssh/*_ecdsa"
+    ".ssh/*_dsa"
+    ".env"
+    ".env.*"
+    "*credentials*"
+    "*secret*"
+    ".netrc"
+    ".npmrc"
+    ".pypirc"
+    ".aws/credentials"
+    ".docker/config.json"
+)
+
+check_dependencies() {
+    local missing=()
+    for cmd in git rsync; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing+=("$cmd")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "Error: missing required dependencies: ${missing[*]}"
+        exit 1
+    fi
+}
+
+check_dependencies
+
 usage() {
     cat <<EOF
 Simple DotFiles Manager (sdfm)
 
 Repository Setup:
-  init --remote <url> [--branch <branch>]   Initialize dotfiles repo
-  clone <url> [--branch <branch>]           Clone remote repo
-  create-empty-branch <branch>              Create new empty orphan branch
+  init --remote <url> [--branch <branch>]        Initialize dotfiles repo
+  clone <url> [--branch <branch>]                Clone remote repo
+  create-empty-branch <branch>                   Create new empty orphan branch
 
 Environment Management:
-  switch <branch>           Switch to environment (Git branch)
-  copy <new-branch>         Create and switch to a new branch
-  sync                      Sync with remote
-  pull [--merge]            Pull from remote (fast-forward by default)
-  tag <name>                Create and push a tag
-  list-tags                 List tags
-  checkout-tag <tag>        Checkout a tag
-  push                      Push current branch
+  switch <branch>                                Switch to environment (Git branch)
+  copy <new-branch>                              Create and switch to a new branch
+  sync [--force] [--dry-run]                     Sync with remote (requires --force)
+  pull [--merge]                                 Pull from remote (fast-forward default)
+  push                                           Push current branch
+  tag <name>                                     Create and push a tag
+  list-tags                                      List tags
+  checkout-tag <tag>                             Checkout a tag
 
 File Tracking:
-  add <file>...             Copy file(s) from \$HOME to repo
-  rm <file>...              Remove file(s) from repo
-  update                    Update tracked files in repo from \$HOME
-  status                    Show status
-  log                       Show log
-  diff                      Show differences between \$HOME and repo
-  apply                     Backup and apply dotfiles to \$HOME
+  add <file>...                                  Copy file(s) from \$HOME to repo
+  rm <file>...                                   Remove file(s) from repo
+  list                                           List tracked files
+  update [--dry-run]                             Update tracked files from \$HOME
+  status                                         Show status
+  log                                            Show log
+  diff                                           Show differences between \$HOME and repo
+  apply [--dry-run]                              Backup and apply dotfiles to \$HOME
 
 Backup Maintenance:
-  cleanup-backup [--keep-days <n>]   Delete backups older than n days (default: 30)
+  list-backups                                   List available backups
+  restore <timestamp>                            Restore files from a backup
+  cleanup-backup [--keep-days <n>] [--dry-run]   Delete old backups (default: 30 days)
 
 Other:
-  git <args>                Run arbitrary git command in the repo
-  help                      Show this help
+  git <args>                                     Run arbitrary git command in repo
+  help                                           Show this help
 EOF
 }
 
@@ -50,17 +86,48 @@ require_repo() {
 }
 
 abspath() {
-    target="$1"
-    if [ -d "$target" ]; then
-        (cd "$target" && pwd)
+    local target="$1"
+    if [ -e "$target" ]; then
+        if [ -d "$target" ]; then
+            (cd "$target" && pwd)
+        else
+            (cd "$(dirname "$target")" && echo "$(pwd)/$(basename "$target")")
+        fi
     else
-        (cd "$(dirname "$target")" && echo "$(pwd)/$(basename "$target")")
+        # Handle non-existent files: resolve parent dir if it exists
+        local dir parent base
+        dir="$(dirname "$target")"
+        base="$(basename "$target")"
+        if [ -d "$dir" ]; then
+            parent="$(cd "$dir" && pwd)"
+            echo "$parent/$base"
+        else
+            echo "Error: parent directory does not exist: $dir" >&2
+            return 1
+        fi
     fi
 }
 
 relpath_from_home() {
     local target="$1"
     [[ "$target" == "$HOME"* ]] && echo "${target#$HOME/}" || echo "$target"
+}
+
+warn_sensitive_file() {
+    local file="$1"
+    local basename
+    basename="$(basename "$file")"
+    for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+        if [[ "$file" == *$pattern ]] || [[ "$basename" == $pattern ]]; then
+            echo "WARNING: '$file' may contain sensitive data (matched pattern: $pattern)"
+            read -rp "Are you sure you want to add this file? (y/N): " confirm
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                return 1
+            fi
+            return 0
+        fi
+    done
+    return 0
 }
 
 commit_changes() {
@@ -106,7 +173,6 @@ apply_files() {
     done
 }
 
-# Main
 command="${1:-help}"
 shift || true
 
@@ -213,15 +279,61 @@ case "$command" in
         [ -z "$new_branch" ] && { echo "Error: create-empty-branch requires a branch name"; exit 1; }
 
         git -C "$REPO_DIR" checkout --orphan "$new_branch"
-        git -C "$REPO_DIR" rm -rf .
+        git -C "$REPO_DIR" rm -rf . 2>/dev/null || true
         git -C "$REPO_DIR" commit --allow-empty -m "Initial empty commit"
         echo "Created empty branch $new_branch"
         ;;
 
     sync)
         require_repo
+        dry_run=false
+        force=false
+
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --dry-run) dry_run=true; shift ;;
+                --force) force=true; shift ;;
+                *) echo "Warning: unknown option $1"; shift ;;
+            esac
+        done
+
         current_branch=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)
         git -C "$REPO_DIR" fetch origin
+
+        # Check for local changes that would be lost
+        local_changes=$(git -C "$REPO_DIR" status --porcelain)
+        local_commits=$(git -C "$REPO_DIR" rev-list "origin/$current_branch"..HEAD 2>/dev/null || true)
+
+        if [ -n "$local_changes" ] || [ -n "$local_commits" ]; then
+            echo "WARNING: sync will discard the following local changes:"
+            if [ -n "$local_changes" ]; then
+                echo ""
+                echo "Uncommitted changes:"
+                echo "$local_changes"
+            fi
+            if [ -n "$local_commits" ]; then
+                echo ""
+                echo "Local commits not on remote:"
+                git -C "$REPO_DIR" log --oneline "origin/$current_branch"..HEAD
+            fi
+            echo ""
+
+            if [ "$dry_run" = true ]; then
+                echo "[dry-run] Would reset to origin/$current_branch"
+                exit 0
+            fi
+
+            if [ "$force" != true ]; then
+                echo "Use --force to proceed or --dry-run to preview."
+                exit 1
+            fi
+        fi
+
+        if [ "$dry_run" = true ]; then
+            echo "[dry-run] No local changes to discard. Would sync with origin/$current_branch"
+            exit 0
+        fi
+
         git -C "$REPO_DIR" reset --hard "origin/$current_branch"
         echo "Synchronized with origin/$current_branch"
         ;;
@@ -232,7 +344,7 @@ case "$command" in
         [[ "${1:-}" == "--merge" ]] && { merge_mode=""; shift; }
 
         current_branch=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)
-        git -C "$REPO_DIR" pull $merge_mode origin "$current_branch"
+        git -C "$REPO_DIR" pull ${merge_mode:+"$merge_mode"} origin "$current_branch"
         echo "Pulled updates into $current_branch"
         ;;
 
@@ -268,10 +380,16 @@ case "$command" in
         require_repo
         [ "$#" -eq 0 ] && { echo "Error: add requires files"; exit 1; }
 
+        added_files=()
         for p in "$@"; do
-            [[ "$p" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
-            abs=$(abspath "$p")
-            rel=$(relpath_from_home "$p")
+            abs=$(abspath "$p") || { echo "Skipping $p (invalid path)"; continue; }
+            [[ "$abs" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
+            rel=$(relpath_from_home "$abs")
+
+            if ! warn_sensitive_file "$rel"; then
+                echo "Skipping $rel"
+                continue
+            fi
 
             dest="$WORK_TREE/$rel"
             mkdir -p "$(dirname "$dest")"
@@ -282,32 +400,46 @@ case "$command" in
             fi
             git -C "$REPO_DIR" add "home/$rel"
             echo "Added $rel"
+            added_files+=("$rel")
         done
 
-        commit_changes "Added files"
+        if [ ${#added_files[@]} -gt 0 ]; then
+            commit_changes "Added files"
+        else
+            echo "No files added."
+        fi
         ;;
 
     rm)
         require_repo
         [ "$#" -eq 0 ] && { echo "Error: rm requires files"; exit 1; }
 
+        removed_files=()
         for p in "$@"; do
-            [[ "$p" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
-            rel=$(relpath_from_home "$p")
+            abs=$(abspath "$p") || { echo "Skipping $p (invalid path)"; continue; }
+            [[ "$abs" != "$HOME"* ]] && { echo "Skipping $p (outside \$HOME)"; continue; }
+            rel=$(relpath_from_home "$abs")
 
             if [ -e "$WORK_TREE/$rel" ]; then
                 git -C "$REPO_DIR" rm -rq "home/$rel"
                 echo "Removed $rel"
+                removed_files+=("$rel")
             else
                 echo "Not found in repo: $rel"
             fi
         done
 
-        commit_changes "Removed files"
+        if [ ${#removed_files[@]} -gt 0 ]; then
+            commit_changes "Removed files"
+        else
+            echo "No files removed."
+        fi
         ;;
 
     update)
         require_repo
+        dry_run=false
+        [[ "${1:-}" == "--dry-run" ]] && { dry_run=true; shift; }
 
         changed=0
 
@@ -318,20 +450,32 @@ case "$command" in
 
             if [ -e "$src" ]; then
                 if [ ! -e "$dest" ] || ! cmp -s "$src" "$dest"; then
-                    mkdir -p "$(dirname "$dest")"
-                    cp -a "$src" "$dest"
-                    git -C "$REPO_DIR" add "home/$relpath"
-                    echo "Updated $relpath"
+                    if [ "$dry_run" = true ]; then
+                        echo "[dry-run] Would update $relpath"
+                    else
+                        mkdir -p "$(dirname "$dest")"
+                        cp -a "$src" "$dest"
+                        git -C "$REPO_DIR" add "home/$relpath"
+                        echo "Updated $relpath"
+                    fi
                     changed=1
                 fi
             else
-                git -C "$REPO_DIR" rm -q "home/$relpath"
-                echo "Removed $relpath (no longer in \$HOME)"
+                if [ "$dry_run" = true ]; then
+                    echo "[dry-run] Would remove $relpath (no longer in \$HOME)"
+                else
+                    git -C "$REPO_DIR" rm -q "home/$relpath"
+                    echo "Removed $relpath (no longer in \$HOME)"
+                fi
                 changed=1
             fi
         done < <(git -C "$REPO_DIR" ls-files "home")
 
-        if [ "$changed" -eq 1 ]; then
+        if [ "$dry_run" = true ]; then
+            if [ "$changed" -eq 0 ]; then
+                echo "[dry-run] No changes detected."
+            fi
+        elif [ "$changed" -eq 1 ]; then
             commit_changes "Updated dotfiles"
         else
             echo "No changes to commit."
@@ -350,19 +494,43 @@ case "$command" in
 
     apply)
         require_repo
-        ts=$(date +%Y%m%d%H%M%S)
-        backup="$BACKUP_DIR_BASE/$ts"
-        echo "Backing up to $backup"
-        backup_files "$backup"
-        apply_files
-        echo "Dotfiles applied"
+        dry_run=false
+        [[ "${1:-}" == "--dry-run" ]] && { dry_run=true; shift; }
+
+        if [ "$dry_run" = true ]; then
+            echo "[dry-run] The following files would be applied to \$HOME:"
+            echo ""
+            git -C "$REPO_DIR" ls-files "home" | while read -r f; do
+                relpath="${f#home/}"
+                repo_file="$WORK_TREE/$relpath"
+                home_file="$HOME/$relpath"
+
+                if [ ! -e "$home_file" ]; then
+                    echo "  [new]      $relpath"
+                elif ! cmp -s "$repo_file" "$home_file"; then
+                    echo "  [modified] $relpath"
+                else
+                    echo "  [same]     $relpath"
+                fi
+            done
+            echo ""
+            echo "[dry-run] No changes made. Remove --dry-run to apply."
+        else
+            ts=$(date +%Y%m%d%H%M%S)
+            backup="$BACKUP_DIR_BASE/$ts"
+            echo "Backing up to $backup"
+            backup_files "$backup"
+            apply_files
+            echo "Dotfiles applied"
+        fi
         ;;
 
     diff)
         require_repo
         echo "Checking for differences between repo and \$HOME..."
-        TMP_MARKER="$(mktemp)"
-        git -C "$REPO_DIR" ls-files "home" | while read -r f; do
+
+        found_diff=0
+        while read -r f; do
             relpath="${f#home/}"
             repo_file="$WORK_TREE/$relpath"
             home_file="$HOME/$relpath"
@@ -372,28 +540,104 @@ case "$command" in
                     echo "=== Diff for $relpath ==="
                     diff -u "$home_file" "$repo_file" || true
                     echo
-                    echo "1" >> "$TMP_MARKER"
+                    found_diff=1
                 fi
             else
                 echo "--- $relpath missing in \$HOME (would be added)"
-                echo "1" >> "$TMP_MARKER"
+                found_diff=1
             fi
-        done
+        done < <(git -C "$REPO_DIR" ls-files "home")
 
-        if ! grep -q "1" "$TMP_MARKER"; then
+        if [ "$found_diff" -eq 0 ]; then
             echo "No differences found."
         fi
-        rm -f "$TMP_MARKER"
+        ;;
+
+    list)
+        require_repo
+        echo "Tracked files:"
+        git -C "$REPO_DIR" ls-files "home" | while read -r f; do
+            echo "  ${f#home/}"
+        done
+        ;;
+
+    list-backups)
+        if [ ! -d "$BACKUP_DIR_BASE" ]; then
+            echo "No backups found."
+            exit 0
+        fi
+
+        found=0
+        while IFS= read -r -d '' b; do
+            if [ "$found" -eq 0 ]; then
+                echo "Available backups:"
+                found=1
+            fi
+            ts=$(basename "$b")
+            # Format: YYYYMMDDHHMMSS -> YYYY-MM-DD HH:MM:SS
+            formatted="${ts:0:4}-${ts:4:2}-${ts:6:2} ${ts:8:2}:${ts:10:2}:${ts:12:2}"
+            file_count=$(find "$b" -type f | wc -l | tr -d ' ')
+            echo "  $ts  ($formatted)  [$file_count files]"
+        done < <(find "$BACKUP_DIR_BASE" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | sort -zr)
+
+        if [ "$found" -eq 0 ]; then
+            echo "No backups found."
+        fi
+        ;;
+
+    restore)
+        timestamp="${1:-}"
+        [ -z "$timestamp" ] && { echo "Error: restore requires a timestamp. Use 'list-backups' to see available backups."; exit 1; }
+
+        backup_path="$BACKUP_DIR_BASE/$timestamp"
+        if [ ! -d "$backup_path" ]; then
+            echo "Error: backup not found: $timestamp"
+            echo "Use 'list-backups' to see available backups."
+            exit 1
+        fi
+
+        echo "Restoring from backup $timestamp..."
+        while IFS= read -r -d '' src; do
+            relpath="${src#$backup_path/}"
+            dest="$HOME/$relpath"
+            mkdir -p "$(dirname "$dest")"
+            cp -a "$src" "$dest"
+            echo "Restored $relpath"
+        done < <(find "$backup_path" -type f -print0)
+        echo "Restore complete."
         ;;
 
     cleanup-backup)
         keep_days=30
-        [[ "${1:-}" == "--keep-days" ]] && { keep_days="$2"; shift 2; }
+        dry_run=false
 
-        find "$BACKUP_DIR_BASE" -mindepth 1 -maxdepth 1 -type d -mtime +"$keep_days" -print0 | while IFS= read -r -d '' dir; do
-            rm -rf "$dir"
-            echo "Deleted backup $dir"
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --keep-days) keep_days="$2"; shift 2 ;;
+                --dry-run) dry_run=true; shift ;;
+                *) echo "Warning: unknown option $1"; shift ;;
+            esac
         done
+
+        if [ ! -d "$BACKUP_DIR_BASE" ]; then
+            echo "No backups directory found."
+            exit 0
+        fi
+
+        found=0
+        while IFS= read -r -d '' dir; do
+            if [ "$dry_run" = true ]; then
+                echo "[dry-run] Would delete backup $(basename "$dir")"
+            else
+                rm -rf "$dir"
+                echo "Deleted backup $(basename "$dir")"
+            fi
+            found=1
+        done < <(find "$BACKUP_DIR_BASE" -mindepth 1 -maxdepth 1 -type d -mtime +"$keep_days" -print0)
+
+        if [ "$found" -eq 0 ]; then
+            echo "No backups older than $keep_days days."
+        fi
         ;;
 
     git)

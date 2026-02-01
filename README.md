@@ -12,7 +12,7 @@ A lightweight Bash tool for managing your dotfiles in a Git repository with easy
 - Backup existing files before applying new ones  
 - Tag and version your configurations  
 - Synchronize with remote  
-- Simple, dependency-free (just Bash + Git)
+- Minimal dependencies (Bash, Git, rsync)
 
 ---
 
@@ -32,37 +32,40 @@ sdfm <command> [options]
 
 Run `sdfm help` for a full command list:
 
-```bash
+```
 Repository Setup:
-  init --remote <url> [--branch <branch>]   Initialize dotfiles repo
-  clone <url> [--branch <branch>]           Clone remote repo
-  create-empty-branch <branch>              Create new empty orphan branch
+  init --remote <url> [--branch <branch>]        Initialize dotfiles repo
+  clone <url> [--branch <branch>]                Clone remote repo
+  create-empty-branch <branch>                   Create new empty orphan branch
 
 Environment Management:
-  switch <branch>           Switch to environment (Git branch)
-  copy <new-branch>         Create and switch to a new branch
-  sync                      Sync with remote
-  pull [--merge]            Pull from remote (fast-forward by default)
-  tag <name>                Create and push a tag
-  list-tags                 List tags
-  checkout-tag <tag>        Checkout a tag
-  push                      Push current branch
+  switch <branch>                                Switch to environment (Git branch)
+  copy <new-branch>                              Create and switch to a new branch
+  sync [--force] [--dry-run]                     Sync with remote (requires --force)
+  pull [--merge]                                 Pull from remote (fast-forward default)
+  push                                           Push current branch
+  tag <name>                                     Create and push a tag
+  list-tags                                      List tags
+  checkout-tag <tag>                             Checkout a tag
 
 File Tracking:
-  add <file>...             Copy file(s) from $HOME to repo
-  rm <file>...              Remove file(s) from repo
-  update                    Update tracked files in repo from $HOME
-  status                    Show status
-  log                       Show log
-  diff                      Show differences between $HOME and repo
-  apply                     Backup and apply dotfiles to $HOME
+  add <file>...                                  Copy file(s) from $HOME to repo
+  rm <file>...                                   Remove file(s) from repo
+  list                                           List tracked files
+  update [--dry-run]                             Update tracked files from $HOME
+  status                                         Show status
+  log                                            Show log
+  diff                                           Show differences between $HOME and repo
+  apply [--dry-run]                              Backup and apply dotfiles to $HOME
 
 Backup Maintenance:
-  cleanup-backup [--keep-days <n>]   Delete backups older than n days (default: 30)
+  list-backups                                   List available backups
+  restore <timestamp>                            Restore files from a backup
+  cleanup-backup [--keep-days <n>] [--dry-run]   Delete old backups (default: 30 days)
 
 Other:
-  git <args>                Run arbitrary git command in the repo
-  help                      Show this help
+  git <args>                                     Run arbitrary git command in repo
+  help                                           Show this help
 ```
 
 ## Example Workflow
@@ -110,7 +113,7 @@ sdfm switch work-env
 6. Sync with remote  
 
 ```bash
-sdfm sync
+sdfm sync --force
 ```
 
 7. Tag configuration
@@ -139,12 +142,47 @@ Every `apply` creates a backup in:
 $HOME/.local/share/sdfm/backups/<timestamp>
 ```
 
-You can restore files manually from there if needed.
+List available backups:
+
+```bash
+sdfm list-backups
+```
+
+Restore from a backup:
+
+```bash
+sdfm restore 20260201143022
+```
+
+Clean up old backups (older than 30 days by default):
+
+```bash
+sdfm cleanup-backup
+sdfm cleanup-backup --keep-days 7
+sdfm cleanup-backup --dry-run  # Preview what would be deleted
+```
+
+## Dry-Run Mode
+
+Preview changes before applying them:
+
+```bash
+sdfm apply --dry-run      # See what files would be overwritten
+sdfm update --dry-run     # See what files would be updated in repo
+sdfm sync --dry-run       # See what local changes would be discarded
+```
+
+## Safety Features
+
+- **Sensitive file warnings**: Adding files matching patterns like `.ssh/id_*`, `.env`, `*credentials*` will prompt for confirmation
+- **Sync protection**: `sync` requires `--force` flag if there are local changes to discard
+- **Automatic backups**: Every `apply` backs up existing files first
 
 ## Requirements
 
-- Git
 - Bash
+- Git
+- rsync
 
 ## License
 

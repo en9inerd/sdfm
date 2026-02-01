@@ -1,29 +1,38 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# Change this to your script filename
-SCRIPT_NAME="sdfm.sh"
-TARGET_SCRIPT_NAME="sdfm"
-
-# Change this to your repo URL if you want to download via curl
-SCRIPT_URL="https://raw.githubusercontent.com/en9inerd/sdfm/master/$SCRIPT_NAME"
-
+SCRIPT_URL="https://raw.githubusercontent.com/en9inerd/sdfm/master/sdfm.sh"
 INSTALL_DIR="$HOME/.local/bin"
-TARGET_PATH="$INSTALL_DIR/$TARGET_SCRIPT_NAME"
+TARGET_PATH="$INSTALL_DIR/sdfm"
 
-# Create bin directory if needed
+check_dependencies() {
+    local missing=()
+    for cmd in git rsync curl; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing+=("$cmd")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "Error: missing required dependencies: ${missing[*]}"
+        exit 1
+    fi
+}
+
+check_dependencies
+
 mkdir -p "$INSTALL_DIR"
 
-echo "Installing $SCRIPT_NAME to $TARGET_PATH..."
+echo "Installing sdfm to $TARGET_PATH..."
 
-# Download the script
-curl -fsSL "$SCRIPT_URL" -o "$TARGET_PATH"
+if ! curl -fsSL "$SCRIPT_URL" -o "$TARGET_PATH"; then
+    echo "Error: failed to download sdfm"
+    exit 1
+fi
 
 chmod +x "$TARGET_PATH"
 
-echo "Installed $TARGET_SCRIPT_NAME."
+echo "Installed sdfm."
 
-# Check if ~/.local/bin is in PATH
 case ":$PATH:" in
   *":$INSTALL_DIR:"*)
     echo "$INSTALL_DIR is already in PATH."
@@ -39,7 +48,6 @@ case ":$PATH:" in
     elif [ "$SHELL_NAME" = "zsh" ]; then
         PROFILE_FILE="$HOME/.zshrc"
     else
-        # Fallback to .profile
         PROFILE_FILE="$HOME/.profile"
     fi
 
@@ -49,5 +57,4 @@ case ":$PATH:" in
     ;;
 esac
 
-echo "Done! You can now run '$TARGET_SCRIPT_NAME'"
-
+echo "Done! You can now run 'sdfm'"
