@@ -1,188 +1,95 @@
 # sdfm - Simple DotFiles Manager
 
-A lightweight Bash tool for managing your dotfiles in a Git repository with easy backup and environment switching.
+A small Bash script that keeps each machine's public dotfiles on its own branch of one Git
+repository. Branches share nothing: each one is a complete set of files for one machine.
 
----
+Files are copied, not symlinked, into a repository at `~/.local/share/sdfm/repo`. It is
+meant for files without secrets; Git keeps only the executable bit, so other permissions
+are not restored.
 
-## Features
+Requires Bash 3.2+ and Git.
 
-- Initialize or clone a dotfiles repository  
-- Track files and directories under `$HOME`  
-- Create and switch between environments (branches)  
-- Backup existing files before applying new ones  
-- Tag and version your configurations  
-- Synchronize with remote  
-- Minimal dependencies (Bash, Git, rsync)
-
----
-
-## Installation
-
-You can install **sdfm** automatically with the provided `install.sh` script:
+## Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/en9inerd/sdfm/master/install.sh | bash
 ```
 
+Run the same command again to update.
+
+Make sure `~/.local/bin` is in your `PATH`. Run the same commands again to update.
+
+## Commands
+
+```
+  clone <url> <branch>    Clone the repo and check out this machine's branch
+                          (created empty if it does not exist yet)
+  add <path>...           Copy files or directories from $HOME into the repo
+  rm <path>...            Stop tracking files or directories
+  list                    List tracked files
+  diff                    Show differences between $HOME and the repo
+  update                  Copy changed tracked files from $HOME into the repo
+  apply                   Copy the repo's files into $HOME, backing up what changes
+  push                    Push this machine's branch
+  list-backups            List backups made by apply
+  restore <timestamp>     Copy a backup back into $HOME
+  git <args>              Run a git command in the repo
+  help                    Show this help
+```
+
 ## Usage
 
-```bash
-sdfm <command> [options]
-```
-
-Run `sdfm help` for a full command list:
-
-```
-Repository Setup:
-  init --remote <url> [--branch <branch>]        Initialize dotfiles repo
-  clone <url> [--branch <branch>]                Clone remote repo
-  create-empty-branch <branch>                   Create new empty orphan branch
-
-Environment Management:
-  switch <branch>                                Switch to environment (Git branch)
-  copy <new-branch>                              Create and switch to a new branch
-  sync [--force] [--dry-run]                     Sync with remote (requires --force)
-  pull [--merge]                                 Pull from remote (fast-forward default)
-  push                                           Push current branch
-  tag <name>                                     Create and push a tag
-  list-tags                                      List tags
-  checkout-tag <tag>                             Checkout a tag
-
-File Tracking:
-  add <file>...                                  Copy file(s) from $HOME to repo
-  rm <file>...                                   Remove file(s) from repo
-  list                                           List tracked files
-  update [--dry-run]                             Update tracked files from $HOME
-  status                                         Show status
-  log                                            Show log
-  diff                                           Show differences between $HOME and repo
-  apply [--dry-run]                              Backup and apply dotfiles to $HOME
-
-Backup Maintenance:
-  list-backups                                   List available backups
-  restore <timestamp>                            Restore files from a backup
-  cleanup-backup [--keep-days <n>] [--dry-run]   Delete old backups (default: 30 days)
-
-Other:
-  git <args>                                     Run arbitrary git command in repo
-  help                                           Show this help
-```
-
-## Example Workflow
-
-1. Initialize a new repository  
+Create an empty repository on your Git host once. Then on each new machine, pick a branch
+name for it:
 
 ```bash
-sdfm init --remote git@github.com:yourname/dotfiles.git --branch main
-```
-
-2. Add and commit dotfiles  
-
-```bash
-sdfm add ~/.bashrc ~/.vimrc ~/.config/nvim
-```
-
-3. Push changes
-
-```bash
+sdfm clone git@github.com:you/dotfiles.git macbook
+sdfm add ~/.zshrc ~/.config/nvim ~/.config/ghostty
 sdfm push
 ```
 
-4. Apply configuration
-
-This backs up current files before overwriting them:
+Day to day:
 
 ```bash
+sdfm diff          # what changed in $HOME
+sdfm update        # copy the changes into the repo and commit
+sdfm push
+```
+
+Restoring a machine:
+
+```bash
+sdfm clone git@github.com:you/dotfiles.git macbook
+sdfm diff
 sdfm apply
 ```
 
-5. Switch environments
-
-Create a new branch:
-
-```bash
-sdfm copy work-env
-```
-
-Switch to it:
-
-```bash
-sdfm switch work-env
-```
-
-6. Sync with remote  
-
-```bash
-sdfm sync --force
-```
-
-7. Tag configuration
-
-```bash
-sdfm tag initial-setup
-```
-
-List tags:
-
-```bash
-sdfm list-tags
-```
-
-Checkout a tagged version:
-
-```bash
-sdfm checkout-tag initial-setup
-```
-
-## Backups
-
-Every `apply` creates a backup in:
-
-```bash
-$HOME/.local/share/sdfm/backups/<timestamp>
-```
-
-List available backups:
+Undoing an `apply`:
 
 ```bash
 sdfm list-backups
+sdfm restore 20261119151340
+rm -rf ~/.local/share/sdfm/backups/20261119151340   # delete a backup
 ```
 
-Restore from a backup:
+Anything else goes through Git:
 
 ```bash
-sdfm restore 20260201143022
+sdfm git status
+sdfm git log -p    # review contents before pushing
+sdfm git pull      # after editing the branch elsewhere, then sdfm apply
 ```
 
-Clean up old backups (older than 30 days by default):
+## Notes
 
-```bash
-sdfm cleanup-backup
-sdfm cleanup-backup --keep-days 7
-sdfm cleanup-backup --dry-run  # Preview what would be deleted
-```
-
-## Dry-Run Mode
-
-Preview changes before applying them:
-
-```bash
-sdfm apply --dry-run      # See what files would be overwritten
-sdfm update --dry-run     # See what files would be updated in repo
-sdfm sync --dry-run       # See what local changes would be discarded
-```
-
-## Safety Features
-
-- **Sensitive file warnings**: Adding files matching patterns like `.ssh/id_*`, `.env`, `*credentials*` will prompt for confirmation
-- **Sync protection**: `sync` requires `--force` flag if there are local changes to discard
-- **Automatic backups**: Every `apply` backs up existing files first
-
-## Requirements
-
-- Bash
-- Git
-- rsync
+- A directory is added file by file and nested `.git` directories are skipped. Files
+  created in it later need another `sdfm add`.
+- A tracked file missing from `$HOME` stays in the repository; `update` reports it.
+  Stop tracking it with `sdfm rm`.
+- Adding a file whose name looks sensitive (`.ssh/id_*`, `.env`, `*token*`, `.gnupg/*`,
+  ...) asks first. Contents are not checked.
+- Commits ask for confirmation. Without a terminal the answer is no and the change is
+  discarded; use `yes | sdfm update` in scripts.
 
 ## License
 

@@ -7,7 +7,7 @@ TARGET_PATH="$INSTALL_DIR/sdfm"
 
 check_dependencies() {
     local missing=()
-    for cmd in git rsync curl; do
+    for cmd in git; do
         if ! command -v "$cmd" &>/dev/null; then
             missing+=("$cmd")
         fi
